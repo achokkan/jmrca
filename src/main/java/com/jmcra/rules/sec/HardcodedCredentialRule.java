@@ -33,6 +33,10 @@ public class HardcodedCredentialRule implements RuleEvaluator {
       "test", "mock", "placeholder"
   );
 
+  private static final List<String> IGNORE_PREFIXES = List.of(
+      "http://", "https://", "jdbc:", "SELECT ", "INSERT ", "UPDATE ", "DELETE ", "hasRole(", "Task "
+  );
+
   @Override
   public String ruleId() {
     return "SEC-001";
@@ -83,6 +87,19 @@ public class HardcodedCredentialRule implements RuleEvaluator {
     // Ignore safe place holders
     if (value.startsWith("${") && value.endsWith("}")) return false;
     if (SAFE_VALUES.contains(value.toLowerCase(Locale.ROOT))) return false;
+    
+    // Ignore common non-secret prefixes (SQL, URLs, etc)
+    if (IGNORE_PREFIXES.stream().anyMatch(prefix -> value.toUpperCase(Locale.ROOT).startsWith(prefix.toUpperCase(Locale.ROOT)))) {
+        return false;
+    }
+
+    // Ignore strings with spaces (likely log messages or sentences) unless they look like secrets
+    if (value.contains(" ") && !value.contains("password") && !value.contains("secret")) return false;
+
+    // Ignore common path patterns, but allow secrets that happen to have slashes (like AWS keys)
+    if (value.startsWith("/") || (value.contains("/") && !value.startsWith("AKIA"))) {
+        if (!value.contains(":") || value.startsWith("http")) return false;
+    }
     
     // Check if the variable name indicates a secret
     boolean isSecretVarName = expr.findAncestor(VariableDeclarationExpr.class).map(vd -> {

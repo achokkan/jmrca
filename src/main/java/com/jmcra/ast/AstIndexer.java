@@ -66,7 +66,11 @@ public class AstIndexer {
     log.info("Building AST index for [{}], targetFiles={}", repositoryRoot,
         targetFiles.isEmpty() ? "ALL" : targetFiles.size() + " files");
 
-    JavaParser parser = configureParser(repositoryRoot);
+    // Detect versions first so we can configure the parser correctly
+    String detectedJava = detectJavaVersion(repositoryRoot);
+    Map<String, String> detectedFrameworks = detectFrameworks(repositoryRoot);
+
+    JavaParser parser = configureParser(repositoryRoot, detectedJava);
 
     Map<String, CompilationUnit> cuMap      = new HashMap<>();
     Map<String, List<String>>    importGraph = new HashMap<>();
@@ -99,12 +103,12 @@ public class AstIndexer {
     log.info("AST index built: {} files parsed, {} errors", parsed.get(), parseErrors.size());
 
     return new AstIndex(cuMap, callGraph, importGraph, annoIndex, parseErrors,
-        detectJavaVersion(repositoryRoot), detectFrameworks(repositoryRoot));
+        detectedJava, detectedFrameworks);
   }
 
   // ── Symbol Resolution Setup ────────────────────────────────────────────────
 
-  private JavaParser configureParser(Path repoRoot) {
+  private JavaParser configureParser(Path repoRoot, String javaVersion) {
     var typeSolver = new CombinedTypeSolver();
     typeSolver.add(new ReflectionTypeSolver(false));
 
@@ -118,9 +122,19 @@ public class AstIndexer {
       typeSolver.add(new JavaParserTypeSolver(testSrc));
     }
 
+    ParserConfiguration.LanguageLevel level = ParserConfiguration.LanguageLevel.JAVA_21;
+    try {
+        int version = Integer.parseInt(javaVersion.split("\\.")[0]);
+        if (version >= 25) level = ParserConfiguration.LanguageLevel.JAVA_25;
+        else if (version >= 21) level = ParserConfiguration.LanguageLevel.JAVA_21;
+        else if (version >= 17) level = ParserConfiguration.LanguageLevel.JAVA_17;
+    } catch (Exception e) {
+        log.warn("Invalid java version [{}], defaulting to JAVA_21", javaVersion);
+    }
+
     var parserConfig = new ParserConfiguration()
         .setSymbolResolver(new JavaSymbolSolver(typeSolver))
-        .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21); // Java 21 is stable for JP 3.28
+        .setLanguageLevel(level);
 
     return new JavaParser(parserConfig);
   }
@@ -145,9 +159,11 @@ public class AstIndexer {
     }
 
     try (Stream<Path> walk = Files.walk(srcMain)) {
-      return walk.filter(p -> p.toString().endsWith(".java"))
+      List<Path> files = walk.filter(p -> p.getFileName().toString().toLowerCase().endsWith(".java"))
                  .filter(Files::isRegularFile)
                  .toList();
+      log.info("Resolved {} Java files for indexing under [{}]", files.size(), srcMain);
+      return files;
     } catch (IOException e) {
       log.error("Failed to walk source directory [{}]", srcMain, e);
       return List.of();
@@ -202,23 +218,16 @@ public class AstIndexer {
   // ── Version Detection ──────────────────────────────────────────────────────
 
   private String detectJavaVersion(Path repoRoot) {
-    // Try pom.xml first
+    // Try pom.xml first with robust regex
     Path pom = repoRoot.resolve("pom.xml");
     if (Files.exists(pom)) {
       try {
         String content = Files.readString(pom);
-        var matcher = java.util.regex.Pattern
-            .compile("<java\\.version>(\\d+)</java\\.version>")
-            .matcher(content);
-        if (matcher.find()) return matcher.group(1);
-
-        matcher = java.util.regex.Pattern
-            .compile("<maven\\.compiler\\.release>(\\d+)</maven\\.compiler\\.release>")
-            .matcher(content);
-        if (matcher.find()) return matcher.group(1);
+        var m = java.util.regex.Pattern.compile("<(?:java\\.version|maven\\.compiler\\.release|maven\\.compiler\\.source|maven\\.compiler\\.target)>\\s*([^<\\s]+)\\s*</").matcher(content);
+        if (m.find()) return m.group(1).strip();
       } catch (IOException ignored) {}
     }
-    return "17"; // Safe fallback — minimum supported version
+    return "17"; 
   }
 
   private Map<String, String> detectFrameworks(Path repoRoot) {

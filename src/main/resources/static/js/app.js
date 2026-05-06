@@ -61,10 +61,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape') closeAllModals();
     });
 
-    // Report search
+    // Report search (Debounced)
+    let searchTimeout;
     document.getElementById('report-search-input')?.addEventListener('input', e => {
-        activeFilter.search = e.target.value.toLowerCase().trim();
-        renderFindingList();
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            activeFilter.search = e.target.value.toLowerCase().trim();
+            renderFindingList();
+        }, 250);
     });
 
     // Report severity filters
@@ -194,8 +198,11 @@ async function viewReport(scanId) {
         // Default detail
         document.getElementById('report-details-panel').innerHTML = `
             <div class="rm-detail-empty">
-                <i data-lucide="file-search"></i>
-                <p>Select a finding on the left to inspect it</p>
+                <div class="empty-icon-shell">
+                    <i data-lucide="shield-check" style="width:48px;height:48px;color:var(--success);opacity:0.6"></i>
+                </div>
+                <p>Select a finding to begin remediation</p>
+                <span style="font-size:12px;color:var(--text-dim)">Total of ${findings.length} issues identified</span>
             </div>`;
 
         renderFindingList();

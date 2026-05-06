@@ -1,0 +1,83 @@
+{
+  "scanTarget": "sandbox",
+  "expectedFindings": [
+    {
+      "ruleId": "SEC-001",
+      "file": "module-sec/src/main/java/com/jmcra/sandbox/sec/VulnerableController.java",
+      "severity": "CRITICAL",
+      "message": "Hardcoded credential or API key literal in source"
+    },
+    {
+      "ruleId": "SEC-002",
+      "file": "module-sec/src/main/java/com/jmcra/sandbox/sec/VulnerableController.java",
+      "severity": "HIGH",
+      "message": "SQL/JPQL injection via string concatenation in query parameter"
+    },
+    {
+      "ruleId": "SEC-004",
+      "file": "module-sec/src/main/java/com/jmcra/sandbox/sec/VulnerableController.java",
+      "severity": "MEDIUM",
+      "message": "Missing @PreAuthorize on public @RestController methods"
+    },
+    {
+      "ruleId": "RES-001",
+      "file": "module-res/src/main/java/com/jmcra/sandbox/res/UnstableClient.java",
+      "severity": "HIGH",
+      "message": "@FeignClient missing @CircuitBreaker or Resilience4j fallback"
+    },
+    {
+      "ruleId": "RES-002",
+      "file": "module-res/src/main/java/com/jmcra/sandbox/res/UnstableClient.java",
+      "severity": "HIGH",
+      "message": "HTTP client call (RestTemplate/WebClient) without explicit timeout configuration"
+    },
+    {
+      "ruleId": "RES-003",
+      "file": "module-res/src/main/java/com/jmcra/sandbox/res/UnstableClient.java",
+      "severity": "MEDIUM",
+      "message": "Missing retry policy on @KafkaListener annotated method"
+    },
+    {
+      "ruleId": "DAT-001",
+      "file": "module-dat/src/main/java/com/jmcra/sandbox/dat/NPlusOneEntity.java",
+      "severity": "HIGH",
+      "message": "JPA @OneToMany without fetch=LAZY and explicit @BatchSize (N+1 query risk)"
+    },
+    {
+      "ruleId": "DAT-002",
+      "file": "module-dat/src/main/java/com/jmcra/sandbox/dat/NPlusOneEntity.java",
+      "severity": "HIGH",
+      "message": "@Transactional(readOnly=false) on a query-only service method"
+    },
+    {
+      "ruleId": "DEP-001",
+      "file": "module-dep/pom.xml",
+      "severity": "CRITICAL",
+      "message": "Dependency with known CVE (CVSS >= 9.0) detected in project's dependency tree"
+    },
+    {
+      "ruleId": "DEP-005",
+      "file": "module-dep/src/main/java/com/jmcra/sandbox/dep/LegacyService.java",
+      "severity": "MEDIUM",
+      "message": "javax.inject import detected — must migrate to jakarta.inject"
+    },
+    {
+      "ruleId": "CON-010",
+      "file": "module-modern/src/main/java/com/jmcra/sandbox/modern/ModernJavaService.java",
+      "severity": "HIGH",
+      "message": "Scoped value (JEP 506) shared across service boundaries without explicit scope rebind"
+    },
+    {
+      "ruleId": "CON-011",
+      "file": "module-modern/src/main/java/com/jmcra/sandbox/modern/ModernJavaService.java",
+      "severity": "MEDIUM",
+      "message": "Structured concurrency (JEP 505) task scope not closed in try-with-resources"
+    },
+    {
+      "ruleId": "API-005",
+      "file": "module-modern/src/main/java/com/jmcra/sandbox/modern/ModernJavaService.java",
+      "severity": "LOW",
+      "message": "Manual URL-prefix versioning (/v1/, /v2/) detected when Spring Boot 4 native API versioning is available"
+    }
+  ]
+}

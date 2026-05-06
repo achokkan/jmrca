@@ -57,6 +57,12 @@ public record AstIndex(
     detectedJavaVersion = detectedJavaVersion != null ? detectedJavaVersion : "17";
   }
 
+  /** Returns a copy of the index with updated version metadata. */
+  public AstIndex withMetadata(String javaVersion, Map<String, String> frameworks) {
+    return new AstIndex(compilationUnits, callGraph, importGraph, annotationIndex, 
+                       parseErrors, javaVersion, frameworks);
+  }
+
   // ── Convenience Helpers for Rule Evaluators ────────────────────────────────
 
   /** Returns all source file paths in the index. */

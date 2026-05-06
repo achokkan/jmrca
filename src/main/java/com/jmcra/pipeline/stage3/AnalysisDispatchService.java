@@ -88,20 +88,35 @@ public class AnalysisDispatchService {
     var profile = ctx.scanRequest().scanProfile();
     var astIndex = ctx.astIndex();
 
-    return ruleEvaluators.stream()
-        .filter(e -> !profile.isRuleDisabled(e.ruleId()))
+    var active = ruleEvaluators.stream()
+        .filter(e -> {
+            boolean profileEnabled = !profile.isRuleDisabled(e.ruleId());
+            if (!profileEnabled) log.debug("Rule {} disabled by profile", e.ruleId());
+            return profileEnabled;
+        })
         .filter(e -> catalogLoader.findById(e.ruleId())
             .map(rule -> {
-              if (!rule.enabled()) return false;
-              if (!profile.isDomainEnabled(rule.domain())) return false;
+              if (!rule.enabled()) {
+                  log.debug("Rule {} disabled in catalog", e.ruleId());
+                  return false;
+              }
+              if (!profile.isDomainEnabled(rule.domain())) {
+                  log.debug("Domain {} for rule {} disabled", rule.domain(), e.ruleId());
+                  return false;
+              }
               if (rule.isVersionGated()) {
-                String detected = astIndex.frameworkVersion(rule.sinceFramework());
+                String detected = "JAVA".equals(rule.sinceFramework()) 
+                    ? astIndex.detectedJavaVersion() 
+                    : astIndex.frameworkVersion(rule.sinceFramework());
                 return meetsVersionGate(detected, rule.sinceVersion());
               }
               return true;
             })
             .orElse(true)) // Unknown rules: allow by default
         .toList();
+
+    log.info("Active rules for this scan: {}", active.stream().map(RuleEvaluator::ruleId).toList());
+    return active;
   }
 
   /**

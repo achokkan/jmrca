@@ -82,8 +82,10 @@ public class ParseIndexService {
         ? scanRequest.changedFiles()
         : List.of(); // empty = all files
 
-    AstIndex        astIndex        = astIndexer.buildIndex(workspaceRoot, targetFiles);
-    DependencyTree  dependencyTree  = parseDependencies(workspaceRoot);
+    DependencyResult depResult = parseDependencies(workspaceRoot);
+    AstIndex        astIndex        = astIndexer.buildIndex(workspaceRoot, targetFiles)
+                                         .withMetadata(depResult.javaVersion, depResult.frameworks);
+    
     List<Path>      configFiles     = findConfigFiles(workspaceRoot);
     Map<String,String> configProps  = flattenConfig(configFiles);
     Map<String,Integer> lineCounts  = buildLineCountMap(workspaceRoot, astIndex);
@@ -91,13 +93,15 @@ public class ParseIndexService {
     return new DomainContext(
         scanRequest,
         astIndex,
-        dependencyTree,
+        depResult.tree,
         configProps,
         configFiles,
         workspaceRoot,
         lineCounts
     );
   }
+
+  private record DependencyResult(DependencyTree tree, String javaVersion, Map<String, String> frameworks) {}
 
   // ── Repository Clone ───────────────────────────────────────────────────────
 
@@ -142,7 +146,6 @@ public class ParseIndexService {
           if (pathStr.contains(".git") || pathStr.contains("/target/") || pathStr.contains("\\target\\")) {
             return;
           }
-
           Path destination = dest.resolve(src.relativize(source));
           if (Files.isDirectory(source)) {
             Files.createDirectories(destination);
@@ -158,20 +161,51 @@ public class ParseIndexService {
 
   // ── Dependency Parsing ─────────────────────────────────────────────────────
 
-  private DependencyTree parseDependencies(Path repoRoot) {
-    Path pom = repoRoot.resolve("pom.xml");
-    if (Files.exists(pom)) {
-      return parseMavenDependencies(pom);
+  private DependencyResult parseDependencies(Path repoRoot) {
+    List<Dependency> allDeps = new ArrayList<>();
+    Map<String, String> frameworks = new HashMap<>();
+    String javaVersion = "17";
+
+    try (Stream<Path> walk = Files.walk(repoRoot)) {
+      List<Path> buildFiles = walk.filter(p -> {
+        String name = p.getFileName().toString();
+        return name.equals("pom.xml") || name.equals("build.gradle") || name.equals("build.gradle.kts");
+      }).toList();
+
+      for (Path buildFile : buildFiles) {
+        log.info("Analyzing build file: {}", buildFile);
+        if (buildFile.getFileName().toString().equals("pom.xml")) {
+          String content = Files.readString(buildFile);
+          allDeps.addAll(extractMavenDeps(content));
+          
+          // Detect Spring Boot Version (Parent or Dependencies)
+          if (content.contains("spring-boot")) {
+              var m = java.util.regex.Pattern.compile("<spring\\.boot\\.version>([^<]+)</spring\\.boot\\.version>").matcher(content);
+              if (m.find()) {
+                  frameworks.put("SPRING_BOOT", m.group(1));
+                  log.info("Detected SPRING_BOOT version: {}", m.group(1));
+              }
+              
+              var m2 = java.util.regex.Pattern.compile("<artifactId>spring-boot-starter-parent</artifactId>\\s*<version>([^<]+)</version>", java.util.regex.Pattern.DOTALL).matcher(content);
+              if (m2.find()) {
+                  frameworks.put("SPRING_BOOT", m2.group(1));
+                  log.info("Detected SPRING_BOOT version (parent): {}", m2.group(1));
+              }
+          }
+          
+          // Detect Java Version (various properties)
+          var m3 = java.util.regex.Pattern.compile("<(?:java\\.version|maven\\.compiler\\.release|maven\\.compiler\\.source|maven\\.compiler\\.target)>\\s*([^<\\s]+)\\s*</").matcher(content);
+          if (m3.find()) {
+              javaVersion = m3.group(1).strip();
+              log.info("Detected JAVA version: {}", javaVersion);
+          }
+        }
+      }
+    } catch (IOException e) {
+      log.warn("Failed to walk workspace for build files: {}", e.getMessage());
     }
 
-    Path gradle = repoRoot.resolve("build.gradle");
-    Path gradleKts = repoRoot.resolve("build.gradle.kts");
-    if (Files.exists(gradle) || Files.exists(gradleKts)) {
-      log.info("Gradle build file detected — basic version detection only in v1");
-      return DependencyTree.empty("gradle");
-    }
-
-    return DependencyTree.empty("unknown");
+    return new DependencyResult(new DependencyTree("multi-module", allDeps, allDeps), javaVersion, frameworks);
   }
 
   private DependencyTree parseMavenDependencies(Path pomPath) {

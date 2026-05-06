@@ -11,6 +11,8 @@ import com.jmcra.pipeline.stage4.RuleEvaluator;
 import com.jmcra.rules.annotations.Framework;
 import com.jmcra.rules.annotations.RuleDefinition;
 import com.jmcra.rules.annotations.VersionGate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -24,6 +26,13 @@ import java.util.List;
 @Component
 public class StructuredConcurrencyRule implements RuleEvaluator {
 
+  private static final Logger log = LoggerFactory.getLogger(StructuredConcurrencyRule.class);
+
+  @jakarta.annotation.PostConstruct
+  public void init() {
+    log.info("StructuredConcurrencyRule (CON-011) bean initialized.");
+  }
+
   @Override
   public String ruleId() {
     return "CON-011";
@@ -36,20 +45,20 @@ public class StructuredConcurrencyRule implements RuleEvaluator {
 
   @Override
   public Flux<Finding> evaluate(DomainContext ctx) {
-    if (!ctx.astIndex().isJavaVersionAtLeast(25)) {
-      return Flux.empty();
-    }
-      
     return Flux.fromStream(
         ctx.astIndex().compilationUnits().entrySet().stream()
             .flatMap(entry -> {
               String filePath = entry.getKey();
               CompilationUnit cu = entry.getValue();
               return cu.findAll(ObjectCreationExpr.class).stream()
-                  .filter(o -> o.getType().getNameAsString().contains("StructuredTaskScope"))
-                  .filter(o -> o.findAncestor(TryStmt.class)
-                                .map(t -> t.getResources().stream().anyMatch(r -> r.isVariableDeclarationExpr() && r.asVariableDeclarationExpr().getVariables().stream().anyMatch(v -> v.getInitializer().isPresent() && v.getInitializer().get() == o)))
-                                .orElse(false) == false)
+                  .filter(o -> o.getType().asString().contains("StructuredTaskScope"))
+                  .filter(o -> {
+                      var tryStmt = o.findAncestor(TryStmt.class);
+                      if (tryStmt.isEmpty()) return true;
+                      // Check if the variable is declared in the try-with-resources header
+                      return tryStmt.get().getResources().stream()
+                          .noneMatch(r -> r.toString().contains(o.toString()));
+                  })
                   .map(stmt -> {
                       int line = stmt.getBegin().map(p -> p.line).orElse(1);
                       int col = stmt.getBegin().map(p -> p.column).orElse(1);

@@ -39,7 +39,7 @@ public class KafkaRetryRule implements RuleEvaluator {
               CompilationUnit cu = entry.getValue();
               return cu.findAll(MethodDeclaration.class).stream()
                   .filter(m -> m.isAnnotationPresent("KafkaListener"))
-                  .filter(m -> !m.isAnnotationPresent("Retryable"))
+                  .filter(m -> !m.isAnnotationPresent("Retryable") && !m.isAnnotationPresent("RetryableTopic"))
                   .map(stmt -> {
                       int line = stmt.getBegin().map(p -> p.line).orElse(1);
                       int col = stmt.getBegin().map(p -> p.column).orElse(1);

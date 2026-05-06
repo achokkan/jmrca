@@ -164,10 +164,13 @@
             </div>
 
             <!-- Split Pane -->
-            <div class="rm-body">
+            <div class="rm-body glass">
                 <!-- Left: findings list -->
                 <aside class="rm-list" id="report-finding-list">
-                    <div class="rm-list-empty">Loading…</div>
+                    <div class="rm-list-empty">
+                        <i data-lucide="loader-2" class="animate-spin"></i>
+                        <p>Loading findings...</p>
+                    </div>
                 </aside>
 
                 <!-- Right: detail view -->

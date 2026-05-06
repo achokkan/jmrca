@@ -134,3 +134,17 @@ jmcra:
   git:
     clone-dir: ${java.io.tmpdir}/jmcra-test-workspace
     cleanup-after-scan: true
+
+---
+# ── Local profile (H2) ────────────────────────────────────────────────────────
+spring:
+  config:
+    activate:
+      on-profile: local
+  r2dbc:
+    url: r2dbc:h2:mem:///jmcra;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+jmcra:
+  llm:
+    provider: STUB

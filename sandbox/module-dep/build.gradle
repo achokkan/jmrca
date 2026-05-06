@@ -1,0 +1,26 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.0.5'
+    id 'io.spring.dependency-management' version '1.1.4'
+}
+
+group = 'com.jmcra.sandbox'
+version = '1.0.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter'
+    
+    // DEP-001: Known Critical CVE (Vulnerable Jackson version)
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.9.10'
+    
+    // DEP-005: javax.inject detected in Gradle
+    implementation 'javax.inject:javax.inject:1'
+}
+
+test {
+    useJUnitPlatform()
+}
