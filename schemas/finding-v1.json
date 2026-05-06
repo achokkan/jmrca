@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://jmcra.internal/schemas/finding-v1.json",
+  "title": "FindingSchema v1",
+  "description": "JMCRA Finding JSON Schema — canonical contract for all downstream consumers (JIRA, Slack, SonarQube import). Spec: Section 4.2 (Stage 4 — Rule Evaluators). SPC-031.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ruleId",
+    "severity",
+    "title",
+    "file",
+    "line",
+    "column",
+    "snippet",
+    "message",
+    "remediation",
+    "references",
+    "confidence",
+    "ruleVersion"
+  ],
+  "properties": {
+    "ruleId": {
+      "type": "string",
+      "description": "Stable rule identifier in DOM-NNN format (e.g., 'SEC-001'). Never changes once published.",
+      "pattern": "^[A-Z]{2,4}-[0-9]{3}$",
+      "examples": ["SEC-001", "RES-002", "OBS-001", "CON-010"]
+    },
+    "severity": {
+      "type": "string",
+      "description": "Severity level of the finding.",
+      "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+    },
+    "title": {
+      "type": "string",
+      "description": "Short, human-readable title for the finding.",
+      "minLength": 5,
+      "maxLength": 200
+    },
+    "file": {
+      "type": "string",
+      "description": "Relative source file path where the violation was detected (from repo root).",
+      "minLength": 1,
+      "examples": ["src/main/java/com/acme/Config.java"]
+    },
+    "line": {
+      "type": "integer",
+      "description": "1-based line number of the violation. Must be within the actual file.",
+      "minimum": 1
+    },
+    "column": {
+      "type": "integer",
+      "description": "1-based column offset. 0 if not applicable.",
+      "minimum": 0
+    },
+    "snippet": {
+      "type": "string",
+      "description": "Short code snippet illustrating the violation (max 200 chars). Empty string if not applicable.",
+      "maxLength": 200
+    },
+    "message": {
+      "type": "string",
+      "description": "Detailed, technical explanation of why this is a problem.",
+      "minLength": 10
+    },
+    "remediation": {
+      "type": "string",
+      "description": "Actionable remediation guidance for the developer.",
+      "minLength": 10
+    },
+    "references": {
+      "type": "array",
+      "description": "External reference identifiers (CWE, OWASP, docs links).",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "maxItems": 20
+    },
+    "confidence": {
+      "type": "number",
+      "description": "Model confidence in the finding. LLM-only findings have confidence < 0.5 (Section 6.3).",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "ruleVersion": {
+      "type": "string",
+      "description": "The version of the rule that produced this finding (semver string).",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$",
+      "examples": ["1.0", "1.3", "2.0"]
+    }
+  }
+}

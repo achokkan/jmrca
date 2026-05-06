@@ -1,0 +1,84 @@
+name: JMCRA Nightly Golden Regression
+
+on:
+  schedule:
+    # Run every night at 02:00 UTC (Section 7A.5 — Nightly golden-regression CI job)
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      update_golden:
+        description: "Update golden output baseline (true = regenerate, false = check)"
+        required: false
+        default: "false"
+
+env:
+  JAVA_VERSION: "25"
+
+jobs:
+  golden-regression:
+    name: "Golden Output Regression (25 canonical projects)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: "temurin"
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-nightly-${{ hashFiles('**/pom.xml') }}
+
+      - name: Build JMCRA agent
+        run: mvn package -DskipTests --no-transfer-progress
+
+      - name: Run golden regression suite
+        run: |
+          mvn test \
+            -Dgroups="golden-regression" \
+            --no-transfer-progress
+        env:
+          JMCRA_WEBHOOK_SECRET: ${{ secrets.JMCRA_WEBHOOK_SECRET }}
+          ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
+          SPRING_PROFILES_ACTIVE: test
+
+      - name: Check for finding drift
+        run: |
+          if [ -f target/golden-regression/drift-report.json ]; then
+            DRIFT=$(jq '.driftCount' target/golden-regression/drift-report.json)
+            if [ "$DRIFT" -gt "0" ]; then
+              echo "::error::Golden regression detected $DRIFT finding changes — spec review required!"
+              cat target/golden-regression/drift-report.json
+              exit 1
+            fi
+            echo "Golden regression passed: 0 findings drifted."
+          fi
+
+      - name: Archive golden regression results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: golden-regression-results-${{ github.run_number }}
+          path: target/golden-regression/
+
+      - name: Notify Slack on regression failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST "$SLACK_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": "🚨 JMCRA Golden Regression FAILED — spec drift detected! Review required.",
+              "blocks": [{
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "🚨 *JMCRA Nightly Golden Regression Failed*\nSpec drift detected in finding output. A formal spec-change PR is required before merging.\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+                }
+              }]
+            }'

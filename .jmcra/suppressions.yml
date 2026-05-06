@@ -1,0 +1,24 @@
+# .jmcra/suppressions.yml
+# Team-level suppression rules for JMCRA findings.
+# Applied by RankDedupeService (Stage 5) AFTER ranking.
+#
+# Format:
+#   - ruleId:  <DOM-NNN>          # Required: rule to suppress
+#     file:    <path-fragment>    # Optional: only suppress in files matching this substring
+#     reason:  <explanation>      # Required: documented rationale for the suppression
+#     expires: <YYYY-MM-DD>       # Optional: auto-expiry date for time-limited suppressions
+#
+# Each suppression must be reviewed and approved via a formal spec-change PR.
+# Spec: Section 4.2 (Stage 5): "Applies team-level suppression rules from .jmcra/suppressions.yml."
+
+suppressions:
+  # Example: suppress OBS-002 for legacy logging utility (planned refactor in Q3 2026)
+  # - ruleId:  OBS-002
+  #   file:    src/main/java/com/acme/legacy/LoggingUtil.java
+  #   reason:  "Legacy utility — parameterised logging refactor tracked in JMCRA-142, due Q3 2026"
+  #   expires: 2026-09-30
+
+  # Example: suppress TST-001 for generated code
+  # - ruleId:  TST-001
+  #   file:    generated-sources/
+  #   reason:  "Generated code — coverage not applicable"

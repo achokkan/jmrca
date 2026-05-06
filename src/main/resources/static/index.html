@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JMCRA Dashboard | AI Code Review</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <div class="logo-icon">J</div>
+                <h1 class="logo-text">JMCRA</h1>
+            </div>
+            <nav class="main-nav">
+                <a href="#" class="nav-item active" id="btn-dashboard">
+                    <i data-lucide="layout-dashboard"></i> Dashboard
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <span class="pulse"></span> Connected to Java 25
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content">
+            <header class="top-bar">
+                <div class="search-box">
+                    <i data-lucide="search"></i>
+                    <input type="text" placeholder="Search scan history...">
+                </div>
+                <div class="actions">
+                    <button class="btn btn-primary" id="btn-new-scan">
+                        <i data-lucide="plus"></i> New Scan
+                    </button>
+                    <div class="user-profile">
+                        <div class="avatar">AC</div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="scroll-area">
+                <div class="dashboard-grid">
+                    <!-- Stats Section -->
+                    <section class="stats-row">
+                        <div class="stat-card">
+                            <span class="stat-label">Total Scans</span>
+                            <div class="stat-value" id="stat-total">0</div>
+                            <div class="stat-chart" id="chart-total"></div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Success Rate</span>
+                            <div class="stat-value" id="stat-rate">0%</div>
+                            <div class="stat-chart" id="chart-rate"></div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Safety Score</span>
+                            <div class="stat-value highlight" id="stat-score">--</div>
+                        </div>
+                    </section>
+
+                    <!-- Scan List -->
+                    <section class="scans-section card">
+                        <div class="card-header">
+                            <h2>Recent Activity</h2>
+                            <button class="btn-icon" id="btn-refresh"><i data-lucide="refresh-cw"></i></button>
+                        </div>
+                        <div class="table-container">
+                            <table class="scan-table">
+                               <thead>
+                                   <tr>
+                                       <th>Status</th>
+                                       <th>Repository / Branch</th>
+                                       <th>Score</th>
+                                       <th>Time</th>
+                                       <th>Actions</th>
+                                   </tr>
+                               </thead>
+                               <tbody id="scan-tbody">
+                                   <!-- Scans will be injected here -->
+                                   <tr><td colspan="5" class="loading">Loading history...</td></tr>
+                               </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-scan" class="modal">
+        <div class="modal-content card shadow-xl">
+             <div class="modal-header">
+                 <h3>Trigger Local Scan</h3>
+                 <button class="close-modal">&times;</button>
+             </div>
+             <div class="modal-body">
+                 <div class="form-group">
+                     <label>Local Path</label>
+                     <input type="text" id="scan-path" placeholder="C:\workspace\..." value="C:\workspace\java_ms_cr_agent_antigravity">
+                 </div>
+                 <div class="form-group">
+                     <label>Scan Profile</label>
+                     <select id="scan-profile">
+                         <option value="DEFAULT">Default (All Rules)</option>
+                         <option value="SECURITY">Security Focus</option>
+                     </select>
+                 </div>
+             </div>
+             <div class="modal-footer">
+                 <button class="btn btn-secondary close-modal">Cancel</button>
+                 <button class="btn btn-primary" id="btn-start-scan">Start Analysis</button>
+             </div>
+        </div>
+    </div>
+
+    <!-- Report Modal -->
+    <div id="modal-report" class="modal">
+        <div class="report-modal-shell">
+
+            <!-- Top Bar -->
+            <div class="rm-topbar">
+                <div class="rm-topbar-left">
+                    <div class="logo-icon" style="width:28px;height:28px;font-size:13px">J</div>
+                    <div class="rm-repo-info">
+                        <span id="report-repo" class="rm-repo-name">repository</span>
+                        <span id="report-branch" class="badge rm-branch">branch</span>
+                    </div>
+                </div>
+                <div class="rm-topbar-center">
+                    <div class="rm-search">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="report-search-input" placeholder="Search rule ID, title, file…">
+                    </div>
+                    <div class="rm-filters" id="report-filter-tags">
+                        <button class="filter-tab active" data-sev="ALL">All</button>
+                        <button class="filter-tab critical" data-sev="CRITICAL">Critical</button>
+                        <button class="filter-tab high"     data-sev="HIGH">High</button>
+                        <button class="filter-tab medium"   data-sev="MEDIUM">Medium</button>
+                        <button class="filter-tab low"      data-sev="LOW">Low</button>
+                    </div>
+                </div>
+                <div class="rm-topbar-right">
+                    <div class="rm-score-pill">
+                        Score: <span id="lbl-score" class="rm-score-val">--</span>
+                    </div>
+                    <div class="rm-count-pill">
+                        <span id="lbl-total">0</span> findings &nbsp;·&nbsp;
+                        <span class="score-low" id="lbl-critical">0</span> critical
+                    </div>
+                    <button class="rm-close close-modal" title="Close">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Split Pane -->
+            <div class="rm-body">
+                <!-- Left: findings list -->
+                <aside class="rm-list" id="report-finding-list">
+                    <div class="rm-list-empty">Loading…</div>
+                </aside>
+
+                <!-- Right: detail view -->
+                <section class="rm-detail" id="report-details-panel">
+                    <div class="rm-detail-empty">
+                        <i data-lucide="file-search"></i>
+                        <p>Select a finding on the left to inspect it</p>
+                    </div>
+                </section>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+      lucide.createIcons();
+    </script>
+</body>
+</html>

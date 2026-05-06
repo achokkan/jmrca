@@ -1,0 +1,136 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: jmcra
+  webflux:
+    base-path: /
+  r2dbc:
+    url: r2dbc:postgresql://${POSTGRES_HOST:localhost}:5434/${POSTGRES_DB:jmcra}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+  sql:
+    init:
+      mode: always
+  security:
+    user:
+      name: admin
+      password: admin
+
+otel:
+  sdk:
+    disabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: jmcra
+
+logging:
+  level:
+    com.jmcra: INFO
+    com.github.javaparser: WARN
+    org.eclipse.jgit: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [%X{scanId}] %logger{36} - %msg%n"
+
+# ── JMCRA Configuration ──────────────────────────────────────────────────────
+jmcra:
+
+  ingest:
+    # Inject via environment variable: JMCRA_INGEST_WEBHOOK_SECRET
+    webhook-secret: ${JMCRA_WEBHOOK_SECRET:changeme-set-in-production}
+    sources:
+      - github
+      - gitlab
+
+  pipeline:
+    domain-concurrency: 4         # Max parallel domain workers (Spec Section 4.2 Stage 3)
+    domain-timeout: 120s          # Timeout per domain worker
+    sonar-qube-enabled: false     # Enable SonarQube finding deduplication (Stage 5)
+    sonar-qube-url: ""
+    sonar-qube-token: ""
+
+  llm:
+    # Provider: CLAUDE | OPENAI | GEMINI | STUB
+    provider: ${JMCRA_LLM_PROVIDER:STUB}
+    rate-limit-per-minute: 60     # Token-bucket rate limit (Section 10 risk mitigation)
+    claude:
+      api-key: ${ANTHROPIC_API_KEY:}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+
+  delivery:
+    # CI gate: exit non-zero if findings at/above threshold. Values: CRITICAL | HIGH | NONE
+    gate-threshold: CRITICAL
+    github:
+      enabled: ${JMCRA_GITHUB_DELIVERY_ENABLED:false}
+      token: ${GITHUB_TOKEN:}
+      api-url: https://api.github.com
+    jira:
+      enabled: ${JMCRA_JIRA_ENABLED:false}
+      base-url: ${JIRA_BASE_URL:}
+      username: ${JIRA_USERNAME:}
+      api-token: ${JIRA_API_TOKEN:}
+      project-key: ${JIRA_PROJECT_KEY:JMCRA}
+    slack:
+      enabled: ${JMCRA_SLACK_ENABLED:false}
+      webhook-url: ${SLACK_WEBHOOK_URL:}
+      top-findings-count: 5
+
+  git:
+    clone-dir: ${JMCRA_CLONE_DIR:/tmp/jmcra-workspace}
+    clone-depth: 1
+    cleanup-after-scan: true
+
+---
+# ── Development profile ───────────────────────────────────────────────────────
+spring:
+  config:
+    activate:
+      on-profile: dev
+logging:
+  level:
+    com.jmcra: DEBUG
+    com.github.javaparser: INFO
+jmcra:
+  pipeline:
+    domain-concurrency: 2
+  git:
+    clone-dir: ${java.io.tmpdir}/jmcra-dev-workspace
+    cleanup-after-scan: false     # Keep workspace for inspection in dev
+
+---
+# ── Test profile ──────────────────────────────────────────────────────────────
+spring:
+  config:
+    activate:
+      on-profile: test
+jmcra:
+  ingest:
+    webhook-secret: test-secret-do-not-use-in-production
+  llm:
+    provider: STUB
+    claude:
+      api-key: test-key
+  delivery:
+    gate-threshold: NONE          # Don't fail tests on gate violations
+    github:
+      enabled: false
+    jira:
+      enabled: false
+    slack:
+      enabled: false
+  git:
+    clone-dir: ${java.io.tmpdir}/jmcra-test-workspace
+    cleanup-after-scan: true
